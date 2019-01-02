@@ -132,7 +132,7 @@ kubectl describe pods       # more detail pod info/events (command + args now)
 kubectl logs mypod          # show pod stdout/err
 ```
 
-## Part 4 - Environment
+## Part 5 - Environment
 ### pod.yaml
 ```
 apiVersion: v1
@@ -165,7 +165,7 @@ kubectl describe pods       # more detail pod info/events (command + args now)
 kubectl logs mypod          # show pod stdout/err
 ```
 
-## Part 5 - kubectl exec
+## Part 6 - kubectl exec
 Look around a running pod.
 
 ### pod.yaml
@@ -216,7 +216,7 @@ free -m   # shows node memory info
 uptime    # for node...
 ```
 
-## Part 6 - Labels and Annotations
+## Part 7 - Labels and Annotations
 Labels are selectors that can be used by Kubernetes (more later).
 Annotations are like labels, but for other tools and libraries.
 
@@ -263,7 +263,7 @@ kubectl get pods -l app=lol    # no resources found
 ```
 
 
-## Part 7 - Resource Requests and Limits
+## Part 8 - Resource Requests and Limits
 Resource requests specifiy a minimum (used by Kubernetes for bin-packing).
 Resource limits specifiy a maximum allowed.
 
@@ -309,7 +309,7 @@ kubectl describe pods       # more detail pod info/events (notice cpu/memory res
 kubectl describe nodes      # show node details (notice resource utilization)
 ```
 
-## Part 8 - Ports And Kubectl Port-Forward
+## Part 9 - Ports And Kubectl Port-Forward
 Expose container TCP/UDP ports
 
 ### pod.yaml
@@ -354,7 +354,7 @@ Connect to pod ports over a secure tunnel with kubectl port-forward
 kubectl port-forward mypod 8080:80    # now browsable on http://localhost:8080
 ```
 
-## Part 9 kubectl cp
+## Part 10 - kubectl cp
 Kubectl cp copies files and directories to a running container.
 Replace the default Nginx index.html with something else.
 
@@ -389,7 +389,7 @@ kubectl exec -i -t mypod /bin/bash
 kill 1
 ```
 
-## Part 10 Volumes: emptydir
+## Part 11 - Volumes: emptydir
 Persists as long as a pod is on the same node
 
 ### pod.yaml
@@ -449,7 +449,7 @@ kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - cus
 Deleting the pod destroys the emptyDir
 
 
-## Part 11 - Multiple Containers
+## Part 12 - Multiple Containers
 Volumes can be shared between containers in a pod.
 
 ### pod.yaml
@@ -502,7 +502,7 @@ kubectl describe pods       # more detail pod info/events (notice details for ea
 kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - updating content
 ```
 
-## Part 12 - Even More Containers
+## Part 13 - Even More Containers
 Demonstrate socket communication between containers on the same host.
 
 ### pod.yaml
@@ -589,7 +589,7 @@ kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080/     
                                       # browsable on http://localhost:8080/api/ - flask content
 ```
 
-## Part 12 - Config Maps
+## Part 14 - Config Maps
 Store configuration as a Kubernetes object.
 
 ### Create a configmap from a file:
@@ -647,50 +647,143 @@ spec:
       configMap:
         name: my-nginx-config
 ```
+
 ### Create Pod
 ```
 kubectl create -f pod.yaml  # create from declarative configuration
 ```
 
+#### Verify content in a browser:
+Make sure the configMap is being used
+```
+kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080/     - same date content
+                                      # browsable on http://localhost:8080/api/ - flask content
+```
+
+## Part 15 - Services
+Services have their own IPs and use selector (labels) to forward traffic to pods.
+
+### service.yaml
+```
+apiVersion: v1
+kind: Service
+metadata:
+  name: myservice
+spec:
+  selector:
+    app: hello
+  ports:
+    - port: 80
+      targetPort: 80
+  type: LoadBalancer
+```
+
+### List services
+```
+kubectl get services    # shows services names, ip(s), ports
+```
+
+### Utilize External IPs
+Browse to app on service external IP from service.
 
 
+## Part 16 - Deployments
+Deployments allow for replica sets of pods, autoscaling, and rolling updates.
 
+### deployment.yaml
+```
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mydeployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nginx
+  template:
 
+    metadata:
+      name: mypod
+      labels:
+        app: hello
+      annotations:
+        appversion: "0.1"
+    spec:
+      containers:
+        - image: nginx
+          name: hello
+          ports:
+            - name: http
+              containerPort: 80
+          volumeMounts:
+            - name: myhtml
+              mountPath: /usr/share/nginx/html
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+        - image: busybox
+          name: datewriter
+          command:
+            - '/bin/sh'
+            - '-c'
+          args:
+            - 'while true ; do date > /content/index.html ; sleep 1 ; done'
+          volumeMounts:
+            - name: myhtml
+              mountPath: /content
+        - image: jcdemo/flaskapp
+          name: flaskapp
+          ports:
+            - name: flask
+              containerPort: 5000
+      volumes:
+        - name: myhtml
+          emptyDir: {}
+        - name: nginx-config
+          configMap:
+            name: my-nginx-config
+```
 
+### Create the Deployment
+```
+kubectl create -f deployment.yaml
+```
 
+### Show deployment
+```
+kubectl get deployments                   # list deployments
+kubectl describe deployment mydeployment  # additional deployment details
+```
 
-### Volumes: persistent volumes
+### Confirm Content
+Browse To Public IP http://service-public-ip/
 
+### Trivial change deployment
+#### FROM:
+```
+args:
+  - 'while true ; do date > /content/index.html ; sleep 1 ; done'
+```
+#### TO:
+```
+args:
+  - 'while true ; do date +"%s" > /content/index.html ; sleep 1 ; done'
+```
 
+### Watch Deployment Status
 
+```
+kubectl get deployments -w   # show events as the deployment is updated
+```
 
+### Update Deployment
+```
+kubectl apply -f deployment.yaml  # update the existing deployment 
+```
 
+### Confirm Updated Content
+Browse To Public IP http://service-public-ip/ - now showing date as epoch.
 
-
-
-
-# Services
-# load balacner
-# volumes
-#  pvc
-# secrets
-
-
-
-
-# containers review
-# container namespaces
-#   pod shared namespaces
-# k8s cluster
-#  masters (etcd)
-#  worker (kubelet)
-# K8s networking
-
-
-# Deployments...
-# liveness/readiness
-
-# kubectl run...
 
 
 
