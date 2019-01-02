@@ -450,7 +450,7 @@ Deleting the pod destroys the emptyDir
 
 
 ## Part 11 - Multiple Containers
-Persists as long as a pod is on the same node
+Volumes can be shared between containers in a pod.
 
 ### pod.yaml
 ```
@@ -466,13 +466,6 @@ spec:
   containers:
     - image: nginx
       name: hello
-      resources:
-        requests:
-          cpu: "256m"
-          memory: "64Mi"
-        limits:
-          cpu: "1024m"
-          memory: "256Mi"
       ports:
         - name: http
           containerPort: 80
@@ -509,6 +502,156 @@ kubectl describe pods       # more detail pod info/events (notice details for ea
 kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - updating content
 ```
 
+## Part 12 - Even More Containers
+Demonstrate socket communication between containers on the same host.
+
+### pod.yaml
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  labels:
+    app: hello
+  annotations:
+    appversion: "0.1"
+spec:
+  containers:
+    - image: nginx
+      name: hello
+      ports:
+        - name: http
+          containerPort: 80
+      volumeMounts:
+        - name: myhtml
+          mountPath: /usr/share/nginx/html
+    - image: busybox
+      name: datewriter
+      command:
+        - '/bin/sh'
+        - '-c'
+      args:
+        - 'while true ; do date > /content/index.html ; sleep 1 ; done'
+      volumeMounts:
+        - name: myhtml
+          mountPath: /content
+    - image: jcdemo/flaskapp
+      name: flaskapp
+      ports:
+        - name: flask
+          containerPort: 5000
+  volumes:
+    - name: myhtml
+      emptyDir: {}
+```
+### Create Pod
+```
+kubectl create -f pod.yaml  # create from declarative configuration
+```
+
+### Check content in a browser:
+```
+kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - updating content
+kubectl port-forward mypod 5000       # browsable on http://localhost:5000 - flask app content
+```
+
+### Update Nginx configuration
+
+#### default.conf
+```
+server {
+    listen       80;
+    server_name  localhost;
+    location / {
+        root   /usr/share/nginx/html;
+        index  index.html index.htm;
+    }
+    location /api/ {
+      proxy_pass http://localhost:5000/;
+    }
+}   
+```
+
+#### Copy to container
+```
+kubectl cp default.conf mypod:/etc/nginx/conf.d/default.conf -c hello
+```
+
+#### Reload Nginx
+```
+kubectl exec -i -t mypod -c hello /bin/bash
+kill -HUP 1
+```
+
+#### Check content in a browser:
+```
+kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080/     - same date content
+                                      # browsable on http://localhost:8080/api/ - flask content
+```
+
+## Part 12 - Config Maps
+Store configuration as a Kubernetes object.
+
+### Create a configmap from a file:
+```
+kubectl create configmap --from-file=default.conf my-nginx-config
+```
+
+### Show configmap
+```
+kubectl get configmaps                         # list configmaps
+kubectl get configmap my-nginx-config -o yaml  # display configmap content
+```
+
+### pod.yaml
+```
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mypod
+  labels:
+    app: hello
+  annotations:
+    appversion: "0.1"
+spec:
+  containers:
+    - image: nginx
+      name: hello
+      ports:
+        - name: http
+          containerPort: 80
+      volumeMounts:
+        - name: myhtml
+          mountPath: /usr/share/nginx/html
+        - name: nginx-config
+          mountPath: /etc/nginx/conf.d
+    - image: busybox
+      name: datewriter
+      command:
+        - '/bin/sh'
+        - '-c'
+      args:
+        - 'while true ; do date > /content/index.html ; sleep 1 ; done'
+      volumeMounts:
+        - name: myhtml
+          mountPath: /content
+    - image: jcdemo/flaskapp
+      name: flaskapp
+      ports:
+        - name: flask
+          containerPort: 5000
+  volumes:
+    - name: myhtml
+      emptyDir: {}
+    - name: nginx-config
+      configMap:
+        name: my-nginx-config
+```
+### Create Pod
+```
+kubectl create -f pod.yaml  # create from declarative configuration
+```
+
 
 
 
@@ -530,7 +673,6 @@ kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - upd
 # load balacner
 # volumes
 #  pvc
-# configmaps
 # secrets
 
 
@@ -546,7 +688,7 @@ kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - upd
 
 
 # Deployments...
-
+# liveness/readiness
 
 # kubectl run...
 
