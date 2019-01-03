@@ -2,7 +2,7 @@
 
 ## Part 0 - kubectl
 ```
-kubectl config current-context    # what cluster/namespace
+kubectl config current-context    # what cluster
 kubectl version                   # client/server versions
 kubectl version --short           # readable client server version
 kubectl get nodes                 # list cluster nodes
@@ -39,7 +39,7 @@ kubectl get pod mypod -o yaml  # single pod full yaml
 kubectl get pod mypod -o json  # single pod full json
 ```
 
-## Part 2 - Arguments
+## Part 2 - Container Arguments
 ### pod.yaml
 ```
 apiVersion: v1
@@ -69,9 +69,10 @@ kubectl logs mypod          # show pod stdout/err
 ## Part 3 - Command
 Sadly the naming is inconsistent/confusing:
 ```
-Description:          Docker:         Kubernetes:
-command to run        entrypoint      command
-command arguments     cmd             args
+Description:        | Docker:       | Kubernetes:
+--------------------|---------------|-------------
+command to run      | entrypoint    | command
+command arguments   | cmd           | args
 ```
   
 ### pod.yaml
@@ -326,13 +327,6 @@ spec:
   containers:
     - image: nginx
       name: hello
-      resources:
-        requests:
-          cpu: "256m"
-          memory: "64Mi"
-        limits:
-          cpu: "1024m"
-          memory: "256Mi"
       ports:
         - name: http
           containerPort: 80
@@ -389,8 +383,13 @@ kubectl exec -i -t mypod /bin/bash
 kill 1
 ```
 
+Check the content in a browser:
+```
+kubectl port-forward mypod 8080:80    # now browsable on http://localhost:8080 - back to default nginx page
+```
+
 ## Part 11 - Volumes: emptydir
-Persists as long as a pod is on the same node
+Persists as long as a pod is on the same node.
 
 ### pod.yaml
 ```
@@ -406,13 +405,6 @@ spec:
   containers:
     - image: nginx
       name: hello
-      resources:
-        requests:
-          cpu: "256m"
-          memory: "64Mi"
-        limits:
-          cpu: "1024m"
-          memory: "256Mi"
       ports:
         - name: http
           containerPort: 80
@@ -446,7 +438,7 @@ kill 1
 kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - custom content still exists
 ```
 
-Deleting the pod destroys the emptyDir
+Deleting the pod destroys the emptyDir volume.
 
 
 ## Part 12 - Multiple Containers
@@ -503,7 +495,7 @@ kubectl port-forward mypod 8080:80    # browsable on http://localhost:8080 - upd
 ```
 
 ## Part 13 - Even More Containers
-Demonstrate socket communication between containers on the same host.
+Containers in the same pod share localhost.
 
 ### pod.yaml
 ```
@@ -676,6 +668,11 @@ spec:
     - port: 80
       targetPort: 80
   type: LoadBalancer
+```
+
+### Create Service
+```
+kubectl create -f service.yaml
 ```
 
 ### List services
